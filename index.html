@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vue.js Менеджер задач</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+    }
+
+    #app {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    input[type="text"],
+    input[type="date"] {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+
+    button {
+      padding: 8px 12px;
+      background-color: #4c56af;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #3e8e41;
+    }
+
+    ul {
+      list-style-type: none;
+      padding: 0;
+    }
+
+    li {
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+    }
+
+    li:last-child {
+      border-bottom: none;
+    }
+
+    .done {
+      text-decoration: line-through;
+      color: gray;
+    }
+
+    .overdue {
+      color: red;
+      font-weight: bold;
+    }
+
+    h1 {
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="app">
+    <h1>Менеджер задач</h1>
+
+    <task-form @task-submitted="addTask"></task-form>
+
+    <task-list :tasks="tasks" @task-deleted="deleteTask"></task-list>
+
+  </div>
+
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script>
+    const { createApp, defineComponent } = Vue;
+
+    // TaskForm Component
+    const TaskFormComponent = defineComponent({
+      template: `
+        <form @submit.prevent="onSubmit">
+          <input v-model="newTask.text" placeholder="Введите задачу" required>
+          <input type="date" v-model="newTask.deadline" required>
+          <button type="submit">Добавить</button>
+        </form>
+      `,
+      data() {
+        return {
+          newTask: {
+            text: '',
+            deadline: ''
+          }
+        };
+      },
+      methods: {
+        onSubmit() {
+          this.$emit('task-submitted', { ...this.newTask, done: false });
+          this.newTask.text = '';
+          this.newTask.deadline = '';
+        }
+      }
+    });
+
+    // TaskList Component
+    const TaskListComponent = defineComponent({
+      props: {
+        tasks: {
+          type: Array,
+          required: true
+        }
+      },
+      template: `
+        <ul>
+          <li v-for="(task, index) in tasks" :key="index"
+              :class="{ done: task.done, overdue: isOverdue(task) && !task.done }">
+            <input type="checkbox" v-model="task.done" @change="saveTasks">
+            {{ task.text }} — до {{ formatDate(task.deadline) }}
+            <button @click="onDelete(index)">Удалить</button>
+          </li>
+        </ul>
+      `,
+      methods: {
+        onDelete(index) {
+          this.$emit('task-deleted', index);
+        },
+        isOverdue(task) {
+          const today = new Date().toISOString().split('T')[0];
+          return task.deadline < today;
+        },
+        saveTasks() {
+          localStorage.setItem('tasks', JSON.stringify(this.tasks));
+        },
+        formatDate(dateString){
+          return new Date(dateString).toLocaleDateString();
+        }
+      },
+      mounted() {
+        this.saveTasks();
+      },
+      watch: {
+        tasks: {
+          handler(newTasks) {
+            this.saveTasks();
+          },
+          deep: true
+        }
+      }
+    });
+
+    // Main App
+    createApp({
+      components: {
+        'task-form': TaskFormComponent,
+        'task-list': TaskListComponent
+      },
+      data() {
+        return {
+          tasks: []
+        };
+      },
+      methods: {
+        addTask(task) {
+          this.tasks.push(task);
+          this.saveTasks();
+        },
+        deleteTask(index) {
+          this.tasks.splice(index, 1);
+          this.saveTasks();
+        },
+        saveTasks() {
+          localStorage.setItem('tasks', JSON.stringify(this.tasks));
+        },
+        loadTasks() {
+          const saved = localStorage.getItem('tasks');
+          if (saved) this.tasks = JSON.parse(saved);
+        }
+      },
+      mounted() {
+        this.loadTasks();
+      }
+    }).mount('#app');
+  </script>
+
+</body>
+</html>
